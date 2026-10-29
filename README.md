@@ -1,32 +1,96 @@
-# React + TypeScript + Vite
+# Offline Tasks
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Небольшой менеджер задач на **React + TypeScript + Vite** с полноценным PWA lifecycle. Без backend, аккаунтов и внешних ресурсов. Интерфейс на русском, адаптивный, с управлением с клавиатуры.
 
-Currently, two official plugins are available:
+## Что реализовано
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Создание, редактирование, выполнение и удаление задач; фильтры и счётчики.
+- Local persistence через `localStorage`, проверка сохранённых данных и сообщение при ошибке записи.
+- Web App Manifest: standalone, относительные start URL и scope, обычные и maskable PNG-иконки.
+- Service Worker через `vite-plugin-pwa`, offline-first app shell.
+- Precache HTML, JS, CSS, иконок и прочей локальной статики. Внешних шрифтов нет.
+- Online/offline detection и уведомление о работе без сети.
+- Update lifecycle: новая версия ожидает нажатия «Обновить», затем активируется и перезагружает приложение.
+- Install UX через `beforeinstallprompt`, если браузер поддерживает событие.
+- Автоматическая проверка production-версии в Chromium и GitHub Actions.
 
-## React Compiler
+## Запуск
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Нужен Node.js 24 LTS.
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Production preview
+
+```bash
+npm run build
+npm run preview
+```
+
+PWA проверяется на production build / preview, а не только в dev. Service Worker требует HTTPS; localhost подходит для разработки.
+
+## Как проверить offline
+
+1. Откройте production preview в Chrome/Edge.
+2. Дождитесь сообщения «Готово к работе без сети».
+3. Создайте несколько задач и перезагрузите страницу.
+4. DevTools → Network → Offline.
+5. Перезагрузите страницу: приложение открывается, задачи остаются.
+6. Добавьте, измените, выполните и удалите задачи без сети; снова перезагрузите.
+7. Верните сеть: индикатор переключится на Online.
+
+Первый визит без сети невозможен: сначала браузер должен скачать app shell. Локальные данные принадлежат текущему браузеру и origin; очистка данных сайта удалит задачи. Синхронизации между вкладками и устройствами нет. При ошибке чтения исходная запись остаётся нетронутой, пока пользователь не изменит задачи.
+
+## Как проверить установку
+
+Откройте production-версию в Chrome/Edge. Если браузер разрешает установку, появится кнопка в приложении либо значок установки в браузере. Событие зависит от платформы и решения браузера. В iOS используйте Safari → Поделиться → На экран «Домой». Отсутствие кнопки не мешает обычной работе.
+
+## Как проверить обновление
+
+1. Откройте production preview и создайте задачу.
+2. Измените текст приложения и выполните `npm run build`, оставив вкладку открытой.
+3. Вернитесь во вкладку: приложение проверяет обновление при фокусе. Также проверка происходит при новой навигации.
+4. Дождитесь «Доступна новая версия приложения». До нажатия старый интерфейс продолжает работать.
+5. Нажмите «Обновить»: активируется ожидающий Service Worker, страница перезагрузится; задачи останутся в localStorage.
+
+Открытые вкладки одного приложения могут тоже перезагрузиться после подтверждения активации нового worker. `cleanupOutdatedCaches` удаляет устаревшие кеши Workbox, а не пользовательские задачи.
+
+## Проверки
+
+```bash
+npm run lint
+npm run build
+npx playwright install chromium
+npm test
+```
+
+На Linux для браузера может понадобиться `npx playwright install --with-deps chromium`. Тесты проверяют реальные offline reload, CRUD без сети, сохранение после перезагрузки, повреждённое хранилище, мобильную ширину и обновление worker по кнопке. Тест обновления временно пересобирает production-файлы, поэтому запускайте его в отдельном рабочем каталоге, без параллельной сборки.
+
+## Как это работает
+
+**Manifest** описывает установленное приложение: имя, стартовый URL, оформление и иконки. **Service Worker** — отдельный скрипт браузера, который перехватывает запросы и отдаёт app shell из precache. Workbox генерирует список ресурсов с ревизиями; после первой загрузки сеть для запуска интерфейса не нужна. Сами задачи хранятся отдельно, в localStorage, и не попадают в SW-кеш.
+
+`navigator.onLine` показывает состояние подключения браузера, но не гарантирует доступность интернета или backend. Здесь backend нет, поэтому сложные сетевые проверки и API runtime caching не нужны. Пользовательские и банковские API-ответы нельзя кешировать без продуманной политики доступа, срока жизни и очистки: это создаёт риск утечки и устаревших данных.
+
+Регистрация использует стратегию `prompt`: новый worker устанавливается в фоне и ожидает. `updateServiceWorker(true)` вызывается только по кнопке. Реализация следует [официальной документации vite-plugin-pwa для React](https://vite-pwa-org.netlify.app/frameworks/react).
+
+## Структура
+
+```text
+src/
+  components/PwaStatus.tsx   # сеть, установка, обновление
+  hooks/useOnlineStatus.ts  # события online/offline
+  hooks/useTasks.ts         # задачи и localStorage
+  App.tsx                   # один экран задач
+public/icons/               # локальные PNG-иконки
+ tests/pwa.spec.ts          # production E2E
+```
+
+Для размещения в подкаталоге задайте `VITE_BASE_PATH=/offline-tasks/` при сборке. Публикуйте содержимое `dist` на статическом HTTPS-хостинге; не используйте долгий HTTP-кеш для `sw.js` и HTML.
+
+## Зависимости
+
+`npm audit` при первоначальной проверке сообщает о четырёх low-severity записях в цепочке `vite-plugin-pwa → workbox-build → deepmerge` (инструменты сборки). Автоматически предложенный откат на древнюю версию плагина не применяется. Production-зависимости приложения: React и React DOM.
