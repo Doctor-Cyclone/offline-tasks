@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTasks } from './hooks/useTasks'
 import './App.css'
+import { PwaStatus } from './components/PwaStatus'
 
 export default function App() {
   const { tasks, error, add, toggle, remove, rename } = useTasks()
@@ -11,7 +12,7 @@ export default function App() {
   return <main className="workspace">
     <header><a className="brand" href="./"><span className="logo">✓</span> OFFLINE TASKS</a><span className="edition">YOUR SPACE TO FOCUS</span></header>
     <section className="intro"><p className="eyebrow">МЕНЬШЕ ШУМА. БОЛЬШЕ ДЕЛА.</p><h1>Всё начинается<br />с одного дела<span>.</span></h1><p className="subtitle">Освободите голову. Запишите важное.<br />Ваши планы всегда с вами — даже без интернета.</p></section>
-    <section className="board" aria-label="Мои задачи">
+    <PwaStatus /><section className="board" aria-label="Мои задачи">
       <div className="board-heading"><h2>Мои задачи <span>{tasks.length.toString().padStart(2, '0')}</span></h2><span className="local-label">↳ Только на этом устройстве</span></div>
       <form onSubmit={e => { e.preventDefault(); if(text.trim()) { add(text.trim()); setText('') } }}><label className="sr-only" htmlFor="task">Новая задача</label><input id="task" maxLength={240} value={text} onChange={e => setText(e.target.value)} placeholder="Что нужно сделать?" autoComplete="off" /><button className="primary" disabled={!text.trim()}>Добавить ＋</button></form>
       {error && <p role="alert" className="notice warning">{error}</p>}
@@ -22,3 +23,4 @@ export default function App() {
     </section><p className="footnote">Никаких аккаунтов. Никакой синхронизации. Просто ваши дела.</p>
   </main>
 }
+
